@@ -2,6 +2,7 @@ import { Router, type Response } from "express";
 import { z } from "zod";
 import type { BookingJob, BookingRequest, SearchJob, SearchRequest } from "../../shared/types.js";
 import { env } from "./env.js";
+import { tracingEnabled } from "./trace/index.js";
 import { bookings, createBookingJob, createSearchJob, findShowtime, pushStep, searches } from "./jobs.js";
 import { runSearch } from "./finder/index.js";
 import { runBooking, cancelBooking, continueBooking } from "./booker/index.js";
@@ -68,7 +69,10 @@ function failBooking(job: BookingJob, fallbackUrl: string | undefined, err: unkn
 export const api = Router();
 
 api.get("/api/health", (_req, res) => {
-  res.json({ ok: true, mock: env.MOCK, sources: env.SEARCH_SOURCES, book_chain: env.BOOK_CHAIN });
+  res.json({
+    ok: true, mock: env.MOCK, sources: env.SEARCH_SOURCES, book_chain: env.BOOK_CHAIN,
+    tracing: tracingEnabled, arize_project: tracingEnabled ? env.ARIZE_PROJECT : undefined,
+  });
 });
 
 api.post("/api/search", (req, res) => {

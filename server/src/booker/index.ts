@@ -153,7 +153,7 @@ const clock = (iso: string) => {
 /** Traced entry point: one AGENT span per booking, outcome = the state the booking settled in. */
 export async function runBooking(req: BookingRequest, showtime: Showtime, job: BookingJob): Promise<void> {
   const attrs = {
-    kind: "booker", chain: showtime.chain, theater: showtime.theater_name, movie: showtime.movie_title,
+    kind: "booker", booking_id: job.booking_id, chain: showtime.chain, theater: showtime.theater_name, movie: showtime.movie_title,
     showtime_start: showtime.start, party_size: req.party_size, seat_pref: req.seat_pref,
   };
   await withSpan("booker.fandango", attrs, async (span) => {

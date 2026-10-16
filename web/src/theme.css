@@ -230,6 +230,8 @@ main { flex: 1; padding: 24px 32px; }
 .steps-log { list-style: none; padding: 0; margin: 0; font-size: 13px; display: flex; flex-direction: column; gap: 5px; color: #d6d6da; }
 .steps-log time { color: var(--st-text-dim); margin-right: 6px; font-variant-numeric: tabular-nums; }
 .booking__actions { margin-top: auto; }
+.app__trace { margin-left: auto; align-self: center; }
+.booking__trace { margin: 0; font-size: 12px; color: var(--st-text-dim); font-variant-numeric: tabular-nums; }
 .booking__actions .btn { width: 100%; min-height: 44px; }
 
 @media (prefers-reduced-motion: reduce) {

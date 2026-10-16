@@ -100,6 +100,7 @@ export function BookingView({ job, showtime, onCancel, onContinue, onBack }: Boo
           ))}
         </ol>
 
+        <p className="booking__trace">Trace id: {job.booking_id}</p>
         <div className="booking__actions">
           {!ended ? <button className="btn btn--danger" onClick={onCancel}>Cancel</button>
             : <button className="btn" onClick={onBack}>Back to results</button>}

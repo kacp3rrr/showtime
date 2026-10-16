@@ -28,6 +28,13 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [banner, setBanner] = useState<Banner | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  // Arize tracing is server-side; health says whether it's on so the header can show it.
+  const [tracing, setTracing] = useState<string | null>(null);
+  useEffect(() => {
+    api<{ tracing?: boolean; arize_project?: string }>("/api/health")
+      .then((h) => setTracing(h.tracing ? h.arize_project ?? "on" : null))
+      .catch(() => {});
+  }, []);
 
   const search = usePoll<SearchJob>(screen.name === "results" ? `/api/search/${screen.searchId}` : null, searchDone);
   const booking = usePoll<BookingJob>(screen.name === "booking" ? `/api/book/${screen.bookingId}` : null, bookingDone);
@@ -84,6 +91,7 @@ export default function App() {
       <header className="app__header">
         <h1 onClick={() => setScreen({ name: "search" })}>Showtime</h1>
         {screen.name === "booking" && <span className="app__crumb">Booking</span>}
+        {tracing && <span className="pill pill--ok app__trace" title="Every search and booking is traced to Arize">Traced · Arize ({tracing})</span>}
       </header>
 
       {shown && (

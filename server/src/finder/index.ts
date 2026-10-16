@@ -46,7 +46,7 @@ export async function runSearch(req: SearchRequest, job: SearchJob): Promise<voi
     return;
   }
 
-  await withSpan("finder.fandango", { kind: "finder", source: SOURCE, movie: req.movie, zip: req.zip, "openinference.span.kind": "AGENT" }, async (span) => {
+  await withSpan("finder.fandango", { kind: "finder", search_id: job.search_id, source: SOURCE, movie: req.movie, zip: req.zip, "openinference.span.kind": "AGENT" }, async (span) => {
     let sessionId: string | undefined;
     let timer: NodeJS.Timeout | undefined;
     const log = (m: string) => console.log(`[finder ${job.search_id}] ${m}`);
