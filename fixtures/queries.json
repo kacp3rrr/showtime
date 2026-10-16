@@ -1,0 +1,12 @@
+[
+  { "movie": "Street Fighter", "zip": "10018", "date": "today", "expected": {} },
+  { "movie": "Street Fighter", "zip": "10003", "date": "today", "expected": {} },
+  { "movie": "street fighter", "zip": "10023", "date": "today", "expected": {} },
+  { "movie": "Street Fighter", "zip": "11211", "date": "today", "expected": {} },
+  { "movie": "Other Mommy", "zip": "10018", "date": "today", "expected": {} },
+  { "movie": "Other Mommy", "zip": "10023", "date": "today", "expected": {} },
+  { "movie": "other mommy", "zip": "11211", "date": "today", "expected": {} },
+  { "movie": "Verity", "zip": "10003", "date": "today", "expected": {} },
+  { "movie": "Verity", "zip": "10018", "date": "today", "expected": {} },
+  { "movie": "verity", "zip": "11211", "date": "today", "expected": {} }
+]

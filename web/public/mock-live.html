@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Select Seats (mock live view)</title>
+<style>
+  :root {
+    --bg: #0d0d10; --panel: #17171c; --line: #2a2a31; --text: #ecebf0; --muted: #8d8b96;
+    --seat: #3a3a44; --taken: #1f1f25; --pick: #e5a526; --pick-ink: #1a1405; --wheel: #2f6fbf;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { display: flex; flex-direction: column; }
+  header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .brand { font-weight: 800; letter-spacing: .12em; font-size: 13px; color: var(--muted); }
+  .steps { display: flex; gap: 18px; margin-left: auto; font-size: 12px; letter-spacing: .06em; color: var(--muted); }
+  .steps b { color: var(--text); }
+  .info { display: flex; gap: 14px; align-items: baseline; padding: 14px 20px 0; flex-wrap: wrap; }
+  .info h1 { margin: 0; font-size: 22px; }
+  .info span { color: var(--muted); font-size: 13px; }
+  main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px 20px; min-height: 0; }
+  .screen { width: min(640px, 80%); height: 26px; border-top: 4px solid #cfcfd8; border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+    text-align: center; font-size: 11px; letter-spacing: .4em; color: var(--muted); padding-top: 6px; margin-bottom: 18px;
+    box-shadow: 0 -14px 30px -18px rgba(220,220,255,.5); }
+  .map { display: grid; gap: 6px; }
+  .row { display: flex; gap: 6px; align-items: center; }
+  .label { width: 18px; text-align: center; font-size: 11px; color: var(--muted); }
+  .seat { width: clamp(16px, 2.6vw, 28px); aspect-ratio: 1; border-radius: 6px 6px 3px 3px; background: var(--seat); }
+  .seat.taken { background: var(--taken); outline: 1px solid #26262d; }
+  .seat.wheel { background: var(--wheel); }
+  .seat.pick { background: var(--pick); color: var(--pick-ink); font-size: 9px; font-weight: 700; display: grid; place-items: center;
+    box-shadow: 0 0 0 2px #fff3, 0 0 16px 2px rgba(229,165,38,.55); }
+  .gap { width: clamp(10px, 2vw, 22px); }
+  .legend { display: flex; gap: 18px; margin-top: 16px; font-size: 12px; color: var(--muted); flex-wrap: wrap; justify-content: center; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  footer { display: flex; align-items: center; gap: 16px; padding: 12px 20px; border-top: 1px solid var(--line); background: var(--panel); }
+  footer .sel { font-weight: 600; }
+  footer .sel em { font-style: normal; color: var(--pick); }
+  footer button { margin-left: auto; background: var(--pick); color: var(--pick-ink); border: 0; border-radius: 8px;
+    padding: 10px 22px; font-weight: 700; font-size: 14px; }
+  .tag { position: fixed; top: 10px; right: 12px; font-size: 10px; letter-spacing: .14em; color: var(--muted);
+    border: 1px solid var(--line); padding: 3px 7px; border-radius: 4px; background: var(--bg); }
+  header .tag { position: static; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="brand">CINEMA · SEAT SELECTION</div>
+    <div class="steps"><b>1 SEATS</b><span>2 TICKETS</span><span>3 FOOD &amp; DRINK</span><span>4 PURCHASE</span></div>
+    <div class="tag">MOCK LIVE VIEW</div>
+  </header>
+  <div class="info">
+    <h1>Street Fighter</h1>
+    <span>Empire 25 · Today 7:30 PM · Standard · Auditorium 9</span>
+  </div>
+  <main>
+    <div class="screen">SCREEN</div>
+    <div class="map" id="map" aria-label="Seat map"></div>
+    <div class="legend">
+      <span><i style="background:var(--seat)"></i>Available</span>
+      <span><i style="background:var(--pick)"></i>Selected</span>
+      <span><i style="background:var(--taken);outline:1px solid #26262d"></i>Occupied</span>
+      <span><i style="background:var(--wheel)"></i>Wheelchair</span>
+    </div>
+  </main>
+  <footer>
+    <span class="sel">2 seats selected: <em>F7, F8</em></span>
+    <span style="color:var(--muted)">2 × Adult</span>
+    <button type="button" tabindex="-1">Continue</button>
+  </footer>
+<script>
+  // Deterministic "occupied" pattern so the page looks the same on every load.
+  const rows = "ABCDEFGHIJK", cols = 16, picked = new Set(["F7", "F8"]);
+  const map = document.getElementById("map");
+  let seed = 7;
+  const rand = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  for (const r of rows) {
+    const row = document.createElement("div");
+    row.className = "row";
+    row.innerHTML = `<span class="label">${r}</span>`;
+    for (let c = 1; c <= cols; c++) {
+      if (c === 5 || c === 13) row.insertAdjacentHTML("beforeend", '<span class="gap"></span>');
+      const id = r + c, seat = document.createElement("span");
+      seat.className = "seat";
+      if (picked.has(id)) { seat.classList.add("pick"); seat.textContent = id; }
+      else if (r === "K" && (c <= 2 || c >= 15)) seat.classList.add("wheel");
+      else if (rand() < (r < "D" ? 0.25 : 0.42)) seat.classList.add("taken");
+      seat.title = id;
+      row.appendChild(seat);
+    }
+    row.insertAdjacentHTML("beforeend", `<span class="label">${r}</span>`);
+    map.appendChild(row);
+  }
+</script>
+</body>
+</html>

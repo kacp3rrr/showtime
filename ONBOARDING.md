@@ -113,5 +113,10 @@ Stay in your lane's folders. Import types with a relative path:
 Done: the repo scaffold, `GET /api/health`, `env.ts`, `shared/types.ts`, the Vite proxy
 and the block-check script.
 
-Not started: search, booking, mock mode, tracing and the UI (the web app is still the
-stock Vite template).
+Mock mode and the whole API (`server/src/routes.ts`, `jobs.ts`, `mock/`) are done. Special
+mock movies are `zzz` (not playing), `fail` (search fails), `sold` (booking sells out) and
+`login` (booking needs sign-in, then Continue).
+
+`server/src/finder/` and `server/src/booker/` are stubs that throw "not implemented"
+(lanes A and C). Tracing and the UI are not started (the web app is still the stock Vite
+template).

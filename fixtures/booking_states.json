@@ -1,0 +1,320 @@
+{
+  "starting": {
+    "booking_id": "b_fixture",
+    "state": "starting",
+    "interactive": false,
+    "steps": [
+      {
+        "at": "2026-10-16T18:40:00.000Z",
+        "text": "Starting a secure browser session"
+      }
+    ]
+  },
+  "opening": {
+    "booking_id": "b_fixture",
+    "state": "opening",
+    "interactive": false,
+    "steps": [
+      {
+        "at": "2026-10-16T18:40:00.000Z",
+        "text": "Starting a secure browser session"
+      },
+      {
+        "at": "2026-10-16T18:40:03.500Z",
+        "text": "Opening AMC Empire 25 — Street Fighter, 7:30 PM"
+      }
+    ],
+    "live_view_url": "/mock-live.html"
+  },
+  "tickets": {
+    "booking_id": "b_fixture",
+    "state": "tickets",
+    "interactive": false,
+    "steps": [
+      {
+        "at": "2026-10-16T18:40:00.000Z",
+        "text": "Starting a secure browser session"
+      },
+      {
+        "at": "2026-10-16T18:40:03.500Z",
+        "text": "Opening AMC Empire 25 — Street Fighter, 7:30 PM"
+      },
+      {
+        "at": "2026-10-16T18:40:07.000Z",
+        "text": "Selected 2 Adult tickets"
+      }
+    ],
+    "live_view_url": "/mock-live.html"
+  },
+  "seats": {
+    "booking_id": "b_fixture",
+    "state": "seats",
+    "interactive": false,
+    "steps": [
+      {
+        "at": "2026-10-16T18:40:00.000Z",
+        "text": "Starting a secure browser session"
+      },
+      {
+        "at": "2026-10-16T18:40:03.500Z",
+        "text": "Opening AMC Empire 25 — Street Fighter, 7:30 PM"
+      },
+      {
+        "at": "2026-10-16T18:40:07.000Z",
+        "text": "Selected 2 Adult tickets"
+      },
+      {
+        "at": "2026-10-16T18:40:10.500Z",
+        "text": "Looking for 2 adjacent seats near the center"
+      },
+      {
+        "at": "2026-10-16T18:40:14.000Z",
+        "text": "Selected seats F7, F8"
+      }
+    ],
+    "live_view_url": "/mock-live.html",
+    "seats": [
+      "F7",
+      "F8"
+    ]
+  },
+  "checkout": {
+    "booking_id": "b_fixture",
+    "state": "checkout",
+    "interactive": false,
+    "steps": [
+      {
+        "at": "2026-10-16T18:40:00.000Z",
+        "text": "Starting a secure browser session"
+      },
+      {
+        "at": "2026-10-16T18:40:03.500Z",
+        "text": "Opening AMC Empire 25 — Street Fighter, 7:30 PM"
+      },
+      {
+        "at": "2026-10-16T18:40:07.000Z",
+        "text": "Selected 2 Adult tickets"
+      },
+      {
+        "at": "2026-10-16T18:40:10.500Z",
+        "text": "Looking for 2 adjacent seats near the center"
+      },
+      {
+        "at": "2026-10-16T18:40:14.000Z",
+        "text": "Selected seats F7, F8"
+      },
+      {
+        "at": "2026-10-16T18:40:17.500Z",
+        "text": "Skipped food & drink and add-ons"
+      },
+      {
+        "at": "2026-10-16T18:40:21.000Z",
+        "text": "Continuing to checkout as a guest"
+      },
+      {
+        "at": "2026-10-16T18:40:24.500Z",
+        "text": "Seats held — subtotal $38.50"
+      }
+    ],
+    "live_view_url": "/mock-live.html",
+    "seats": [
+      "F7",
+      "F8"
+    ],
+    "subtotal": 38.5,
+    "hold_expires_at": "2026-10-16T18:51:00.000Z"
+  },
+  "handoff": {
+    "booking_id": "b_fixture",
+    "state": "handoff",
+    "interactive": true,
+    "steps": [
+      {
+        "at": "2026-10-16T18:40:00.000Z",
+        "text": "Starting a secure browser session"
+      },
+      {
+        "at": "2026-10-16T18:40:03.500Z",
+        "text": "Opening AMC Empire 25 — Street Fighter, 7:30 PM"
+      },
+      {
+        "at": "2026-10-16T18:40:07.000Z",
+        "text": "Selected 2 Adult tickets"
+      },
+      {
+        "at": "2026-10-16T18:40:10.500Z",
+        "text": "Looking for 2 adjacent seats near the center"
+      },
+      {
+        "at": "2026-10-16T18:40:14.000Z",
+        "text": "Selected seats F7, F8"
+      },
+      {
+        "at": "2026-10-16T18:40:17.500Z",
+        "text": "Skipped food & drink and add-ons"
+      },
+      {
+        "at": "2026-10-16T18:40:21.000Z",
+        "text": "Continuing to checkout as a guest"
+      },
+      {
+        "at": "2026-10-16T18:40:24.500Z",
+        "text": "Seats held — subtotal $38.50"
+      },
+      {
+        "at": "2026-10-16T18:40:28.000Z",
+        "text": "Payment page reached — agent paused (payment guard)"
+      },
+      {
+        "at": "2026-10-16T18:40:31.500Z",
+        "text": "Your turn: finish payment in the window"
+      }
+    ],
+    "live_view_url": "/mock-live.html",
+    "seats": [
+      "F7",
+      "F8"
+    ],
+    "subtotal": 38.5,
+    "hold_expires_at": "2026-10-16T18:51:00.000Z",
+    "guard_tripped": true,
+    "message": "Your turn — finish payment in the window"
+  },
+  "needs_user": {
+    "booking_id": "b_fixture",
+    "state": "needs_user",
+    "interactive": true,
+    "steps": [
+      {
+        "at": "2026-10-16T18:40:00.000Z",
+        "text": "Starting a secure browser session"
+      },
+      {
+        "at": "2026-10-16T18:40:03.500Z",
+        "text": "Opening AMC Empire 25 — Street Fighter, 7:30 PM"
+      },
+      {
+        "at": "2026-10-16T18:40:07.000Z",
+        "text": "Selected 2 Adult tickets"
+      },
+      {
+        "at": "2026-10-16T18:40:10.500Z",
+        "text": "Looking for 2 adjacent seats near the center"
+      },
+      {
+        "at": "2026-10-16T18:40:14.000Z",
+        "text": "Selected seats F7, F8"
+      },
+      {
+        "at": "2026-10-16T18:40:17.500Z",
+        "text": "Skipped food & drink and add-ons"
+      },
+      {
+        "at": "2026-10-16T18:40:21.000Z",
+        "text": "Continuing to checkout as a guest"
+      },
+      {
+        "at": "2026-10-16T18:40:24.500Z",
+        "text": "Seats held — subtotal $38.50"
+      },
+      {
+        "at": "2026-10-16T18:40:28.000Z",
+        "text": "Site asks you to sign in — agent paused"
+      },
+      {
+        "at": "2026-10-16T18:40:31.500Z",
+        "text": "Sign in in the window, then press Continue"
+      }
+    ],
+    "live_view_url": "/mock-live.html",
+    "seats": [
+      "F7",
+      "F8"
+    ],
+    "subtotal": 38.5,
+    "hold_expires_at": "2026-10-16T18:51:00.000Z",
+    "guard_tripped": true,
+    "message": "Sign in here, then press Continue"
+  },
+  "sold_out": {
+    "booking_id": "b_fixture",
+    "state": "sold_out",
+    "interactive": false,
+    "steps": [
+      {
+        "at": "2026-10-16T18:40:00.000Z",
+        "text": "Starting a secure browser session"
+      },
+      {
+        "at": "2026-10-16T18:40:03.500Z",
+        "text": "Opening AMC Empire 25 — Street Fighter, 7:30 PM"
+      },
+      {
+        "at": "2026-10-16T18:40:07.000Z",
+        "text": "Selected 2 Adult tickets"
+      },
+      {
+        "at": "2026-10-16T18:40:10.500Z",
+        "text": "No seats left for this showing"
+      }
+    ],
+    "live_view_url": "/mock-live.html",
+    "fallback_url": "https://www.amctheatres.com/showtimes/147185630",
+    "message": "This showing just sold out. Try the next showtime."
+  },
+  "failed": {
+    "booking_id": "b_fixture",
+    "state": "failed",
+    "interactive": false,
+    "steps": [
+      {
+        "at": "2026-10-16T18:40:00.000Z",
+        "text": "Starting a secure browser session"
+      },
+      {
+        "at": "2026-10-16T18:40:03.500Z",
+        "text": "Opening AMC Empire 25 — Street Fighter, 7:30 PM"
+      },
+      {
+        "at": "2026-10-16T18:40:07.000Z",
+        "text": "Selected 2 Adult tickets"
+      },
+      {
+        "at": "2026-10-16T18:40:10.500Z",
+        "text": "Seat map didn't load after 2 attempts"
+      },
+      {
+        "at": "2026-10-16T18:40:14.000Z",
+        "text": "Stopped — finish on the theater site"
+      }
+    ],
+    "live_view_url": "/mock-live.html",
+    "fallback_url": "https://www.amctheatres.com/showtimes/147185630",
+    "message": "The agent couldn't finish. Use the theater link to book it yourself."
+  },
+  "cancelled": {
+    "booking_id": "b_fixture",
+    "state": "cancelled",
+    "interactive": false,
+    "steps": [
+      {
+        "at": "2026-10-16T18:40:00.000Z",
+        "text": "Starting a secure browser session"
+      },
+      {
+        "at": "2026-10-16T18:40:03.500Z",
+        "text": "Opening AMC Empire 25 — Street Fighter, 7:30 PM"
+      },
+      {
+        "at": "2026-10-16T18:40:07.000Z",
+        "text": "Selected 2 Adult tickets"
+      },
+      {
+        "at": "2026-10-16T18:40:10.500Z",
+        "text": "Cancelled by you — browser session ended"
+      }
+    ],
+    "live_view_url": "/mock-live.html",
+    "message": "Booking cancelled."
+  }
+}
