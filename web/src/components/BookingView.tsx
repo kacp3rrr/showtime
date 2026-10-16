@@ -34,7 +34,9 @@ function useCountdown(iso?: string) {
 
 export function BookingView({ job, showtime, onCancel, onContinue, onBack }: BookingViewProps) {
   const ended = ENDED.includes(job.state);
-  const current = STEPS.findIndex((s) => s.states.includes(job.state));
+  // Pick mode pauses on the seat map with a "Pick your seats…" message: that's the Seats step, not "Your turn".
+  const pickingSeats = job.state === "needs_user" && /pick your .*seats/i.test(job.message ?? "");
+  const current = pickingSeats ? 2 : STEPS.findIndex((s) => s.states.includes(job.state));
   const hold = useCountdown(ended ? undefined : job.hold_expires_at);
 
   return (

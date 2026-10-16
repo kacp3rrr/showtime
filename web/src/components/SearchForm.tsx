@@ -74,6 +74,7 @@ export function SearchForm({ initial, busy, onSubmit }: SearchFormProps) {
           <option value="center">Center</option>
           <option value="aisle">Aisle</option>
           <option value="any">Any</option>
+          <option value="pick">I'll pick</option>
         </select>
       </label>
       <label className="field">

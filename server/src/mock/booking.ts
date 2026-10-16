@@ -1,6 +1,7 @@
 // Mock Booker: walks starting→opening→tickets→seats→checkout→handoff over ~20 s using
 // fixtures/booking_states.json. Movie "sold" → ends sold_out after tickets; "login" → needs_user at
-// checkout, and Continue resumes to handoff. Never touches the network.
+// checkout, and Continue resumes to handoff. seat_pref "pick" → needs_user on the (clickable) mock seat
+// map; Continue walks tickets → checkout → handoff. Never touches the network.
 import type { BookingJob, BookingRequest, BookingState, Showtime } from "../../../shared/types.js";
 import { pushStep } from "../jobs.js";
 import { bookingFixtures } from "./fixtures.js";
@@ -8,7 +9,10 @@ import { bookingFixtures } from "./fixtures.js";
 const MAIN: BookingState[] = ["starting", "opening", "tickets", "seats", "checkout", "handoff"];
 const AT_MS: Record<string, number> = { starting: 0, opening: 2000, tickets: 6000, seats: 10000, checkout: 15000, handoff: 20000 };
 
-type Ctx = { showtime: Showtime; seats: string[]; subtotal: number; timers: NodeJS.Timeout[] };
+type Ctx = {
+  showtime: Showtime; seats: string[]; subtotal: number; timers: NodeJS.Timeout[];
+  pick: boolean; picked: boolean; liveUrl: string;
+};
 const ctxs = new Map<string, Ctx>();
 
 /** Steps a state adds on top of the previous main-path state (or, for branch states, the whole main path). */
@@ -45,7 +49,7 @@ function enter(job: BookingJob, state: BookingState) {
   job.state = state;
   job.interactive = f.interactive;
   job.message = f.message;
-  if (f.live_view_url) job.live_view_url = f.live_view_url;
+  if (f.live_view_url) job.live_view_url = c.liveUrl;
   if (f.seats) job.seats = c.seats;
   if (f.subtotal != null) job.subtotal = c.subtotal;
   if (f.hold_expires_at) job.hold_expires_at ??= new Date(Date.now() + 10 * 60_000).toISOString();
@@ -69,15 +73,40 @@ export async function mockBooking(req: BookingRequest, showtime: Showtime, job: 
     seats: Array.from({ length: req.party_size }, (_, i) => `F${7 + i}`),
     subtotal: Math.round(price * req.party_size * 100) / 100,
     timers: [],
+    pick: req.seat_pref === "pick",
+    picked: false,
+    liveUrl: req.seat_pref === "pick" ? `/mock-live.html?pick=${req.party_size}` : "/mock-live.html",
   });
   const flavor = showtime.movie_title.trim().toLowerCase();
-  if (flavor === "sold") schedule(job, [...pathTo("tickets"), [9000, "sold_out"]]);
+  if (req.seat_pref === "pick") {
+    schedule(job, pathTo("opening"));
+    ctxs.get(job.booking_id)!.timers.push(setTimeout(() => handOverSeatMap(job, req.party_size), 4000));
+  } else if (flavor === "sold") schedule(job, [...pathTo("tickets"), [9000, "sold_out"]]);
   else if (flavor === "login") schedule(job, [...pathTo("checkout"), [18000, "needs_user"]]);
   else schedule(job, pathTo("handoff"));
 }
 
+/** Pick mode: the seat map is open and the person chooses seats in the live view. */
+function handOverSeatMap(job: BookingJob, n: number) {
+  if (job.state === "cancelled") return;
+  job.state = "needs_user";
+  job.interactive = true;
+  job.message = `Pick your ${n} seats in the window, then press Continue.`;
+  pushStep(job, "Seat map is open. Your turn to pick seats.");
+}
+
 export async function mockContinue(job: BookingJob): Promise<void> {
-  if (!ctxs.has(job.booking_id)) throw new Error("mock booking context missing");
+  const c = ctxs.get(job.booking_id);
+  if (!c) throw new Error("mock booking context missing");
+  if (c.pick && !c.picked) {
+    c.picked = true;
+    pushStep(job, "Got your seats. Agent is continuing");
+    job.state = "seats";
+    job.interactive = false;
+    job.message = undefined;
+    schedule(job, [[2000, "tickets"], [6000, "checkout"], [10000, "handoff"]]);
+    return;
+  }
   pushStep(job, "You signed in — agent resuming");
   job.state = "checkout";
   job.interactive = false;

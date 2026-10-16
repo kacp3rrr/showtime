@@ -32,7 +32,8 @@ export type SearchJob = {
   message?: string;
 };
 
-export type BookingRequest = { showtime_id: string; party_size: number; seat_pref: "center" | "aisle" | "any" };
+// "pick" (added 2026-10-16, announced): the person chooses seats in the live seat map, then the agent continues.
+export type BookingRequest = { showtime_id: string; party_size: number; seat_pref: "center" | "aisle" | "any" | "pick" };
 
 export type BookingState =
   | "starting" | "opening" | "tickets" | "seats" | "checkout"

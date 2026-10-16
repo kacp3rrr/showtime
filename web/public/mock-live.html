@@ -32,6 +32,8 @@
   .seat.wheel { background: var(--wheel); }
   .seat.pick { background: var(--pick); color: var(--pick-ink); font-size: 9px; font-weight: 700; display: grid; place-items: center;
     box-shadow: 0 0 0 2px #fff3, 0 0 16px 2px rgba(229,165,38,.55); }
+  body.pick .seat:not(.taken):not(.wheel) { cursor: pointer; }
+  body.pick .seat:not(.taken):not(.wheel):not(.pick):hover { outline: 2px solid var(--pick); }
   .gap { width: clamp(10px, 2vw, 22px); }
   .legend { display: flex; gap: 18px; margin-top: 16px; font-size: 12px; color: var(--muted); flex-wrap: wrap; justify-content: center; }
   .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
@@ -66,13 +68,24 @@
     </div>
   </main>
   <footer>
-    <span class="sel">2 seats selected: <em>F7, F8</em></span>
-    <span style="color:var(--muted)">2 × Adult</span>
+    <span class="sel" id="sel"></span>
+    <span style="color:var(--muted)" id="tix"></span>
     <button type="button" tabindex="-1">Continue</button>
   </footer>
 <script>
+  // ?pick=N: the person chooses N seats by clicking (mock of the real seat map hand-over).
+  const pickN = Number(new URLSearchParams(location.search).get("pick")) || 0;
+  if (pickN) document.body.classList.add("pick");
   // Deterministic "occupied" pattern so the page looks the same on every load.
-  const rows = "ABCDEFGHIJK", cols = 16, picked = new Set(["F7", "F8"]);
+  const rows = "ABCDEFGHIJK", cols = 16, picked = new Set(pickN ? [] : ["F7", "F8"]);
+  const want = pickN || 2;
+  function renderFooter() {
+    const list = [...picked];
+    document.getElementById("sel").innerHTML = list.length
+      ? `${list.length} of ${want} seats selected: <em>${list.join(", ")}</em>`
+      : `Select ${want} seats`;
+    document.getElementById("tix").textContent = `${want} × Adult`;
+  }
   const map = document.getElementById("map");
   let seed = 7;
   const rand = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
@@ -88,11 +101,19 @@
       else if (r === "K" && (c <= 2 || c >= 15)) seat.classList.add("wheel");
       else if (rand() < (r < "D" ? 0.25 : 0.42)) seat.classList.add("taken");
       seat.title = id;
+      if (pickN && !seat.classList.contains("taken") && !seat.classList.contains("wheel")) {
+        seat.addEventListener("click", () => {
+          if (picked.has(id)) { picked.delete(id); seat.classList.remove("pick"); seat.textContent = ""; }
+          else if (picked.size < want) { picked.add(id); seat.classList.add("pick"); seat.textContent = id; }
+          renderFooter();
+        });
+      }
       row.appendChild(seat);
     }
     row.insertAdjacentHTML("beforeend", `<span class="label">${r}</span>`);
     map.appendChild(row);
   }
+  renderFooter();
 </script>
 </body>
 </html>

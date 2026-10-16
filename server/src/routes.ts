@@ -34,7 +34,7 @@ const SearchBody = z.object({
 const BookingBody = z.object({
   showtime_id: z.string().min(1).max(64),
   party_size: z.number().int().min(1).max(6),
-  seat_pref: z.enum(["center", "aisle", "any"]),
+  seat_pref: z.enum(["center", "aisle", "any", "pick"]),
 });
 
 const bad = (res: Response, error: string, status = 400) => void res.status(status).json({ error });

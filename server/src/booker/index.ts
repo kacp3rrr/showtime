@@ -38,8 +38,13 @@ const PREF_TEXT: Record<BookingRequest["seat_pref"], string> = {
   center: "seats in the middle rows near the center of the theater, not the first 3 rows",
   aisle: "aisle seats in the middle rows",
   any: "the best available seats",
+  pick: "the seats the person already selected (keep them exactly; never change or add seats)",
 };
-const PREF_SHORT: Record<BookingRequest["seat_pref"], string> = { center: "center seats", aisle: "aisle seats", any: "seats" };
+const PREF_SHORT: Record<BookingRequest["seat_pref"], string> = {
+  center: "center seats", aisle: "aisle seats", any: "seats", pick: "seats",
+};
+/** Pick mode: how long to wait for Fandango's seat map before handing over anyway. */
+const PICK_WAIT_MS = 60_000;
 /** Agent note meaning a real account wall, which stays needs_user even on the checkout page. */
 const SIGN_IN_NOTE = /sign.?in|log.?in|password|account/i;
 
@@ -87,6 +92,7 @@ type Ctx = {
   progress: BookingState; // last of opening/tickets/seats/checkout
   cap?: NodeJS.Timeout;
   loggedIframes: Set<string>; // ignored payment iframes already logged
+  noSeatMap?: boolean; // pick mode found no seat map: the agent books as usual
 };
 
 const ctxs = new Map<string, Ctx>();
@@ -158,6 +164,7 @@ export async function runBooking(req: BookingRequest, showtime: Showtime, job: B
     pushStep(job, `Opening ${showtime.theater_name} for the ${clock(showtime.start)} show`);
 
     ctx.watcher = await connectBrowser(sessionId);
+    if (req.seat_pref === "pick") return await openForPicking(ctx, showtime.booking_url);
     const prompt =
       `Book ${req.party_size} Adult tickets with ${req.party_size} adjacent seats, preferring ` +
       `${PREF_TEXT[req.seat_pref]}. Continue as guest until the payment step, then stop. ${REPORT}`;
@@ -190,14 +197,35 @@ export async function continueBooking(job: BookingJob): Promise<void> {
     pushStep(job, "Agent is taking over again");
     // The guard or the cap may have paused the agent; a new task on a paused session would stall.
     await Agent.resumeAgent({ path: { session_id: ctx.sessionId } }).catch(() => {});
-    const prompt =
-      `Continue booking from the current page: ${ctx.req.party_size} Adult tickets with ` +
-      `${ctx.req.party_size} adjacent seats, preferring ${PREF_TEXT[ctx.req.seat_pref]}. ` +
-      `Continue as guest until the payment step, then stop. ${REPORT}`;
+    const prompt = ctx.req.seat_pref === "pick"
+      ? `The person has already selected their seats on this page. Do not change, remove or add seats. ` +
+        `Continue booking from the current page: ${ctx.req.party_size} Adult tickets. ` +
+        `Continue as guest until the payment step, then stop. ${REPORT}`
+      : `Continue booking from the current page: ${ctx.req.party_size} Adult tickets with ` +
+        `${ctx.req.party_size} adjacent seats, preferring ${PREF_TEXT[ctx.req.seat_pref]}. ` +
+        `Continue as guest until the payment step, then stop. ${REPORT}`;
     await drive(ctx, prompt);
   } catch (e) {
     await fail(ctx, e);
   }
+}
+
+// ---- pick mode ----------------------------------------------------------------------------------
+
+/**
+ * Pick mode: open the booking page with no agent running (so nothing can click a seat first), let the
+ * watcher spot the seat map, and hand the live browser over. continueBooking() then starts the agent.
+ */
+async function openForPicking(ctx: Ctx, url: string) {
+  ctx.settled = false;
+  const handedOver = new Promise<void>((r) => (ctx.wake = r));
+  startWatch(ctx);
+  ctx.cap = setTimeout(() => {
+    if (ctx.run === 0) needsUser(ctx, `Pick your ${ctx.req.party_size} seats in the window, then press Continue.`, "Seat map didn't load on its own. Your turn in the window.");
+  }, PICK_WAIT_MS);
+  await Sessions.goto({ path: { sessionId: ctx.sessionId! }, body: { url } });
+  await handedOver; // like drive(): return once the person has the browser (or the agent takes over)
+  if (ctx.noSeatMap) await continueBooking(ctx.job);
 }
 
 // ---- one agent run ------------------------------------------------------------------------------
@@ -309,7 +337,7 @@ const pageText = (page: Page) =>
   page.innerText("body", { timeout: 3000 }).then((t) => t.slice(0, PAGE_TEXT_MAX)).catch(() => "");
 
 const STEP_TEXT: Record<"seats" | "tickets" | "checkout", (c: Ctx) => string> = {
-  seats: (c) => `Choosing ${c.req.party_size} adjacent ${PREF_SHORT[c.req.seat_pref]}`,
+  seats: (c) => c.req.seat_pref === "pick" ? "Seat map is open" : `Choosing ${c.req.party_size} adjacent ${PREF_SHORT[c.req.seat_pref]}`,
   tickets: (c) => `Selecting ${c.req.party_size} Adult tickets`,
   checkout: () => "At checkout, continuing as guest",
 };
@@ -320,6 +348,17 @@ function advance(ctx: Ctx, url: string) {
   ctx.progress = hit;
   ctx.job.state = hit;
   pushStep(ctx.job, STEP_TEXT[hit](ctx));
+  if (ctx.req.seat_pref === "pick" && ctx.run === 0) {
+    if (hit === "seats") {
+      needsUser(ctx, `Pick your ${ctx.req.party_size} seats in the window, then press Continue.`, "Your turn: pick your seats in the window.");
+    } else {
+      // No seat map (general admission): nothing to pick, so the agent carries on as usual.
+      pushStep(ctx.job, "This showing has no seat map. Agent is continuing.");
+      clearTimeout(ctx.cap); // drive() sets its own cap and reuses this watcher loop
+      ctx.noSeatMap = true;
+      ctx.wake(); // openForPicking() starts the agent
+    }
+  }
 }
 
 // ---- outcomes -----------------------------------------------------------------------------------
@@ -400,14 +439,14 @@ async function extractCheckout(text: string) {
   return res.parsed_output ?? undefined;
 }
 
-function needsUser(ctx: Ctx, message: string) {
+function needsUser(ctx: Ctx, message: string, step = "Agent stopped. Your turn in the window.") {
   if (!settle(ctx)) return;
   const { job } = ctx;
   job.state = "needs_user";
   job.interactive = true;
   job.fallback_url = ctx.showtime.booking_url;
   job.message = message;
-  pushStep(job, "Agent stopped. Your turn in the window.");
+  pushStep(job, step);
 }
 
 async function soldOut(ctx: Ctx, note?: string) {
