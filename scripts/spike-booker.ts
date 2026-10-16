@@ -4,9 +4,9 @@
 // The watcher NEVER clicks, types or fills anything. No secrets/card data go to the agent.
 // One session, held 3 min for inspection, always deleted in finally (or on Ctrl-C).
 import { client, Sessions, Agent, connectBrowser, agentTask } from "anchorbrowser";
+import { checkGuard } from "../server/src/booker/guard.js";
 
 type Browser = Awaited<ReturnType<typeof connectBrowser>>;
-type Page = ReturnType<Browser["contexts"]>[number]["pages"] extends () => (infer P)[] ? P : never;
 
 const URL_ARG = process.argv[2];
 if (!URL_ARG || !/^https?:\/\//i.test(URL_ARG)) {
@@ -39,23 +39,6 @@ address, PayPal/Apple Pay/Google Pay, or a sign-in/password. Never type into tho
 Never create an account. Never enter an email unless the site requires it to continue
 as a guest before payment; if so, STOP and report "needs_user".`;
 
-const PAY_URL = /payment|billing|checkout\/(pay|review)|purchase|wallet/i;
-const PAY_IFRAME = /stripe|braintree|adyen|cybersource|paypal|spreedly/i;
-// Read-only DOM probe. Passed as a string so tsx/esbuild can't inject helpers (__name) into it.
-const PROBE = `(() => {
-  const hits = [];
-  const has = (sel, label) => { if (document.querySelector(sel)) hits.push(label); };
-  has('input[autocomplete^="cc-"]', "cc-autocomplete");
-  has('input[name*="card" i]', "input[name~card]");
-  has('input[name*="cvv" i]', "input[name~cvv]");
-  has('input[name*="cvc" i]', "input[name~cvc]");
-  has('input[type="password"]', "password");
-  for (const f of document.querySelectorAll("iframe[src]")) {
-    if (${PAY_IFRAME}.test(f.getAttribute("src") || "")) { hits.push("pay-iframe"); break; }
-  }
-  return hits;
-})()`;
-
 const t0 = Date.now();
 const secs = () => ((Date.now() - t0) / 1000).toFixed(1);
 const log = (m: string) => console.log(`[booker ${secs()}s] ${m}`);
@@ -83,17 +66,7 @@ process.on("SIGINT", () => {
   cleanup().finally(() => process.exit(130));
 });
 
-async function probe(page: Page): Promise<string[]> {
-  const reasons: string[] = [];
-  const url = page.url();
-  if (PAY_URL.test(url)) reasons.push("url");
-  // Frame URLs catch payment iframes nested deeper than the top document.
-  if (page.frames().some((f) => f !== page.mainFrame() && PAY_IFRAME.test(f.url()))) reasons.push("pay-frame");
-  const dom = (await page.evaluate(PROBE).catch(() => [])) as string[];
-  return [...new Set([...reasons, ...dom])];
-}
-
-async function onGuard(url: string, reasons: string[]) {
+async function onGuard(url: string, reasons: string[], signIn: boolean) {
   guard = { at: url, reasons };
   console.log(`\n>>> GUARD TRIPPED at ${url}  [${reasons.join(", ")}]\n`);
   try {
@@ -102,7 +75,7 @@ async function onGuard(url: string, reasons: string[]) {
   } catch (e) {
     log(`!!! Agent.pauseAgent FAILED: ${(e as Error).message}`);
   }
-  if (reasons.includes("password")) log("password field present → would be needs_user");
+  if (signIn) log("password field present → would be needs_user");
 }
 
 async function watchLoop(stop: () => boolean) {
@@ -115,9 +88,9 @@ async function watchLoop(stop: () => boolean) {
         if (url !== "about:blank" && !urlsSeen.includes(url)) urlsSeen.push(url);
         lastUrl = url;
         const title = await page.title().catch(() => "?");
-        const reasons = await probe(page);
-        log(`p${i} ${url} | "${title.slice(0, 60)}" | guard=${reasons.length ? reasons.join(",") : "-"}`);
-        if (reasons.length && !guard) await onGuard(url, reasons);
+        const g = await checkGuard(page, { log });
+        log(`p${i} ${url} | "${title.slice(0, 60)}" | guard=${g.tripped ? g.reasons.join(",") : "-"}`);
+        if (g.tripped && !guard) await onGuard(url, g.reasons, g.signIn);
       }
     } catch (e) {
       log(`watcher error: ${(e as Error).message}`);
@@ -130,7 +103,8 @@ try {
   const s = await Sessions.createSession({
     body: {
       session: {
-        proxy: { active: true, country_code: "us" },
+        // NYC exit, same as the Finder and the Booker (a plain "us" proxy landed in Florida).
+        proxy: { active: true, country_code: "us", region: "ny", city: "new-york" },
         timeout: { max_duration: 15, idle_timeout: 5 },
         recording: { active: true },
       },

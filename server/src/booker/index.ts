@@ -9,6 +9,7 @@ import { z } from "zod";
 import type { BookingJob, BookingRequest, BookingState, Showtime } from "../../../shared/types.js";
 import { env } from "../env.js";
 import { pushStep } from "../jobs.js";
+import { checkGuard, type Page } from "./guard.js";
 
 // ---- config -------------------------------------------------------------------------------------
 
@@ -24,23 +25,8 @@ export const STATE_PATTERNS: Record<"tickets" | "seats" | "checkout", { url: Reg
 /** Page text meaning this showtime can't be booked. Kept specific: listings show "Sold Out" badges for other times. */
 export const SOLD_OUT_TEXT = /(showtime|performance|show) (is )?sold out|no (more )?seats (are )?available|tickets are no longer available/i;
 
-// Payment guard, exactly per CLAUDE.md.
-const PAY_URL = /payment|billing|checkout\/(pay|review)|purchase|wallet/i;
-const PAY_IFRAME = /stripe|braintree|adyen|cybersource|paypal|spreedly/i;
-// Read-only DOM probe. A string so tsx/esbuild can't inject helpers (__name) into page context.
-const GUARD_PROBE = `(() => {
-  const hits = [];
-  const has = (sel, label) => { if (document.querySelector(sel)) hits.push(label); };
-  has('input[autocomplete^="cc-"]', "cc-autocomplete");
-  has('input[name*="card" i]', "card-input");
-  has('input[name*="cvv" i]', "cvv-input");
-  has('input[name*="cvc" i]', "cvc-input");
-  has('input[type="password"]', "password");
-  for (const f of document.querySelectorAll("iframe[src]")) {
-    if (${PAY_IFRAME}.test(f.getAttribute("src") || "")) { hits.push("pay-iframe"); break; }
-  }
-  return hits;
-})()`;
+/** NYC exit, same as the Finder (a plain "us" proxy landed in Florida). */
+export const NYC_PROXY = { active: true, country_code: "us", region: "ny", city: "new-york" } as const;
 
 const TICK_MS = 1500;
 const CAP_MS = 3 * 60_000;
@@ -83,7 +69,6 @@ const CheckoutInfo = z.object({
 // ---- state --------------------------------------------------------------------------------------
 
 type Browser = Awaited<ReturnType<typeof connectBrowser>>;
-type Page = ReturnType<ReturnType<Browser["contexts"]>[number]["pages"]>[number];
 type Outcome = { ok: true; result: unknown } | { ok: false; error: string };
 
 type Ctx = {
@@ -98,6 +83,7 @@ type Ctx = {
   wake: () => void; // resolves the current run's race when it settles
   progress: BookingState; // last of opening/tickets/seats/checkout
   cap?: NodeJS.Timeout;
+  loggedIframes: Set<string>; // ignored payment iframes already logged
 };
 
 const ctxs = new Map<string, Ctx>();
@@ -140,7 +126,10 @@ const clock = (iso: string) => {
 // ---- public API ---------------------------------------------------------------------------------
 
 export async function runBooking(req: BookingRequest, showtime: Showtime, job: BookingJob): Promise<void> {
-  const ctx: Ctx = { job, req, showtime, watching: false, run: 0, settled: false, wake: () => {}, progress: "opening" };
+  const ctx: Ctx = {
+    job, req, showtime, watching: false, run: 0, settled: false, wake: () => {}, progress: "opening",
+    loggedIframes: new Set(),
+  };
   ctxs.set(job.booking_id, ctx);
   job.fallback_url = showtime.booking_url;
   try {
@@ -150,7 +139,7 @@ export async function runBooking(req: BookingRequest, showtime: Showtime, job: B
     const s = await Sessions.createSession({
       body: {
         session: {
-          proxy: { active: true, country_code: "us" },
+          proxy: NYC_PROXY,
           timeout: { max_duration: 15, idle_timeout: 5 },
           recording: { active: true },
         },
@@ -284,8 +273,8 @@ async function tick(ctx: Ctx) {
   if (!browser || ctx.settled) return;
   const pages = browser.contexts().flatMap((c) => c.pages());
   for (const page of pages) {
-    const reasons = await guardReasons(page);
-    if (reasons.length) return trip(ctx, page, reasons);
+    const g = await checkGuard(page, { log: (m) => log(ctx, m), logged: ctx.loggedIframes });
+    if (g.tripped) return trip(ctx, page, g.reasons, g.signIn);
   }
   const page = pages.at(-1);
   if (!page) return;
@@ -293,14 +282,6 @@ async function tick(ctx: Ctx) {
   if (ctx.settled) return;
   if (SOLD_OUT_TEXT.test(text)) return void (await soldOut(ctx));
   advance(ctx, page.url(), text);
-}
-
-async function guardReasons(page: Page): Promise<string[]> {
-  const reasons: string[] = [];
-  if (PAY_URL.test(page.url())) reasons.push("url");
-  if (page.frames().some((f) => f !== page.mainFrame() && PAY_IFRAME.test(f.url()))) reasons.push("pay-frame");
-  const dom = (await page.evaluate(GUARD_PROBE).catch(() => [])) as string[];
-  return [...new Set([...reasons, ...dom])];
 }
 
 const pageText = (page: Page) =>
@@ -335,10 +316,9 @@ function settle(ctx: Ctx): boolean {
 }
 
 /** Payment guard fired: pause, hand over, then read seats/subtotal/hold once. Session stays open. */
-async function trip(ctx: Ctx, page: Page, reasons: string[]) {
+async function trip(ctx: Ctx, page: Page, reasons: string[], signIn: boolean) {
   if (!settle(ctx)) return;
   const { job } = ctx;
-  const signIn = reasons.includes("password");
   log(ctx, `GUARD TRIPPED [${reasons.join(",")}]`);
   await pauseAgent(ctx);
   job.guard_tripped = true;
