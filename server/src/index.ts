@@ -1,0 +1,20 @@
+import express from "express";
+import cors from "cors";
+import { env } from "./env.js";
+import { health } from "./routes/health.js";
+
+const app = express();
+app.use(cors());
+app.use(express.json({ limit: "100kb" }));
+
+app.use(health);
+
+// Never leak stack traces to the client.
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error("[server] unhandled:", err instanceof Error ? err.message : err);
+  res.status(500).json({ error: "internal error" });
+});
+
+app.listen(env.PORT, () => {
+  console.log(`[server] :${env.PORT} mock=${env.MOCK} sources=${env.SEARCH_SOURCES.join(",")} book_chain=${env.BOOK_CHAIN}`);
+});

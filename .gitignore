@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.*
+!.env.example
+dist/
+eval/
+recordings/
+*.log
+.DS_Store
+.vite/
