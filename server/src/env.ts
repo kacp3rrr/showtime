@@ -49,7 +49,7 @@ function load(): Env {
     ARIZE_SPACE_ID: str("ARIZE_SPACE_ID"),
     ARIZE_API_KEY: str("ARIZE_API_KEY"),
     ARIZE_PROJECT: str("ARIZE_PROJECT", "showtime"),
-    BOOK_CHAIN: str("BOOK_CHAIN", "amc").toLowerCase(),
+    BOOK_CHAIN: str("BOOK_CHAIN", "fandango").toLowerCase(),
     SEARCH_SOURCES: str("SEARCH_SOURCES", "fandango,amc")
       .split(",")
       .map((s) => s.trim().toLowerCase())

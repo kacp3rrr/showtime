@@ -17,37 +17,8 @@ Full plan (product, test cases, schedule): https://claude.ai/code/artifact/f241e
 3. **Never write secrets** into code, fixtures, logs, commits or the UI bundle. Read keys
    from `process.env` via `server/src/env.ts` only. `.env` is gitignored.
 4. **The payment rule is absolute.** No code path may type, fill, click or submit anything
-   on a payment/card/Start Now
-Starter
-Great for small teams
-$50/mo
-+$1.00/credit overage
-
-    50 Credits per month
-    0.1 credits per completed task
-    Up to 25 concurrent browsers
-    Authenticated (Logged in) Browsers
-    Automated Captcha bypass
-    Run on any geolocation
-
-Start Now
-Team
-Perfect for small teams
-$500/mo
-+$1.00/credit overage
-
-    500 Credits per month
-    0.1 credits per completed task
-    Up to 50 concurrent browsers
-    Cloudflare Verified Browser Agents
-    Custom proxy
-    30 days data retention
-
-Start Now
-Growth
-Perfect for growing businesss
-billing form, pass card data or passwords to the agent, or create
-   accounts. The agent stops at checkout; the human pays. Don't "helpfully" relax this.
+   on a payment/card/billing form, pass card data or passwords to the agent, or create accounts.
+   The agent stops at checkout; the human pays. Don't "helpfully" relax this.
 5. **Mock mode must always work.** `MOCK=1` runs the whole app with no network and no keys.
    Every new feature needs a mock path.
 6. **Anchor agent tasks are not idempotent.** Never auto-retry an `agentTask` more than once,
@@ -211,14 +182,14 @@ const res = await agentTask(PROMPT, { sessionId, taskOptions: {
   maxSteps: 40,
   extendedSystemMessage: STOP_RULES,
 }});
-const data = Schema.parse(JSON.parse(res.data.result));
+const data = Schema.parse(res.data.result);              // result is already an object
 
 await Sessions.deleteSession({ path: { session_id: sessionId } });   // verify arg shape
 ```
 
 Facts to respect:
-- Client auto-retries 408/409/429/5xx up to 2×. **Pass `maxRetries: 0` on createSession and
-  agentTask** where supported, so we never spawn duplicate sessions/tasks.
+- The SDK has no `maxRetries` option and does not auto-retry, so duplicates can only come from
+  our own code: never retry `agentTask` ourselves (rule 6).
 - `agentTask` blocks until done (can take 30–150 s). Run it without awaiting in the route;
   update the job as it progresses.
 - Live view embed: `<iframe src={live_view_url} sandbox="allow-same-origin allow-scripts"
