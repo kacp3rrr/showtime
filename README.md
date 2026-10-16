@@ -16,6 +16,7 @@ Screenshot: <image>
 **1. Search.** Enter a movie, an NYC zip code, a date, party size (1–6) and a seat preference.
 
 **2. Finder** (`server/src/finder/`)
+
 - Opens Fandango in an [Anchor](https://anchorbrowser.io) cloud browser routed through an NYC proxy.
 - Matches what you typed to a title Fandango lists: a local match first, then one Claude Haiku call.
   Ambiguous input gets "Did you mean…" suggestions.
@@ -23,6 +24,7 @@ Screenshot: <image>
   and time. Results are cached for 5 minutes.
 
 **3. Booker** (`server/src/booker/`)
+
 - Click **Book** on a showtime. A fresh Anchor session opens the Fandango booking link, and its live
   view is embedded in the app (view-only while the agent drives).
 - An Anchor agent task picks adjacent seats by your preference, selects Adult tickets only, skips
@@ -53,6 +55,7 @@ handles tickets and checkout without changing your seats.
     of at least 150×40 px.
 
   The watcher only reads the page. It never clicks, types or fills anything.
+
 - **Hidden payment iframes are ignored.** Fandango loads PayPal and Braintree frames in the
   background on the seat map, long before payment; zero-size or hidden frames don't trip the guard.
 - **Sessions end.** Every browser session is capped at 15 minutes and is deleted on cancel, on
@@ -88,4 +91,7 @@ sold out, `login` → booking asks you to sign in.
 
 ## Team
 
-<names>
+- **Daniel Lin** ([@daniellin112904](https://github.com/daniellin112904))
+- **Kacper Lisowicz** ([@kacp3rrr](https://github.com/kacp3rrr))
+- **Read Rafi** ([@rrafi5798](https://github.com/rrafi5798))
+- **AKM Hossain** ([@akmhossain](https://github.com/akmhossain))
