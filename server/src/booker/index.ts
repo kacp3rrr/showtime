@@ -14,13 +14,13 @@ import { checkGuard, type Page } from "./guard.js";
 // ---- config -------------------------------------------------------------------------------------
 
 /**
- * URL/page-text → progress state. Placeholder keyword patterns; replace with the real chain URLs
- * from the spike. Checked in order checkout → seats → tickets, and state only ever moves forward.
+ * Page URL → progress state, from the Fandango spike (jump.aspx → mobileexpress/seatselection →
+ * MobileExpress/Checkout). Fandango picks seats BEFORE ticket types. State only ever moves forward.
  */
-export const STATE_PATTERNS: Record<"tickets" | "seats" | "checkout", { url: RegExp; text: RegExp }> = {
-  tickets: { url: /ticket/i, text: /select (your )?tickets|ticket types?/i },
-  seats: { url: /seat/i, text: /select (your )?seats|choose (your )?seats|seat map/i },
-  checkout: { url: /checkout|review/i, text: /review (your )?order|order summary/i },
+export const STATE_PATTERNS: Record<"seats" | "tickets" | "checkout", RegExp> = {
+  seats: /route=map-seat-map/i,
+  tickets: /route=map-ticket-types/i,
+  checkout: /\/MobileExpress\/Checkout/i,
 };
 /** Page text meaning this showtime can't be booked. Kept specific: listings show "Sold Out" badges for other times. */
 export const SOLD_OUT_TEXT = /(showtime|performance|show) (is )?sold out|no (more )?seats (are )?available|tickets are no longer available/i;
@@ -32,13 +32,16 @@ const TICK_MS = 1500;
 const CAP_MS = 3 * 60_000;
 const MAX_STEPS = 40;
 const PAGE_TEXT_MAX = 30_000; // checkout pages are far smaller; this only bounds pathological pages
-const PROGRESS: BookingState[] = ["opening", "tickets", "seats", "checkout"];
+const PROGRESS: BookingState[] = ["opening", "seats", "tickets", "checkout"];
 
 const PREF_TEXT: Record<BookingRequest["seat_pref"], string> = {
-  center: "seats near the center of the theater",
-  aisle: "aisle seats",
+  center: "seats in the middle rows near the center of the theater, not the first 3 rows",
+  aisle: "aisle seats in the middle rows",
   any: "the best available seats",
 };
+const PREF_SHORT: Record<BookingRequest["seat_pref"], string> = { center: "center seats", aisle: "aisle seats", any: "seats" };
+/** Agent note meaning a real account wall, which stays needs_user even on the checkout page. */
+const SIGN_IN_NOTE = /sign.?in|log.?in|password|account/i;
 
 // CLAUDE.md "Booker stop rules", verbatim with {N}/{PREF} filled.
 const stopRules = (n: number, pref: string) => `You are booking movie tickets for a human who will pay themselves.
@@ -229,10 +232,15 @@ async function drive(ctx: Ctx, prompt: string, url?: string) {
   if (ctx.settled) return;
 
   if (outcome.ok) {
-    const parsed = AgentResult.safeParse(outcome.result);
-    const r = parsed.success ? parsed.data : undefined;
-    log(ctx, `agent finished without the guard: ${r?.status ?? "unparsed result"}`);
+    const r = agentReport(outcome.result);
+    log(ctx, `agent finished without the guard: ${r ? `${r.status} ${r.note ?? ""}`.trim() : "unparsed result"}`);
     if (r?.status === "sold_out") return void (await soldOut(ctx, r.note));
+    // Fandango asks for an email on its checkout page before payment: seats are held, so hand over.
+    const page = currentPage(ctx);
+    const onCheckout = !!page && STATE_PATTERNS.checkout.test(page.url());
+    if (page && onCheckout && r?.status !== "failed" && !SIGN_IN_NOTE.test(r?.note ?? "")) {
+      return void (await checkoutHandoff(ctx, page));
+    }
     return needsUser(ctx, r?.status === "needs_user"
       ? "The site needs you before checkout (sign-in or email). Do that here, then press Continue."
       : "The agent stopped before the payment page. Finish in the window, press Continue, or use the theater link.");
@@ -242,6 +250,19 @@ async function drive(ctx: Ctx, prompt: string, url?: string) {
   }
   await fail(ctx, new Error(outcome.error));
 }
+
+/** The agent's report: the outputSchema object, or a "status: note" string (what the spike got back). */
+function agentReport(result: unknown): z.infer<typeof AgentResult> | undefined {
+  const parsed = AgentResult.safeParse(result);
+  if (parsed.success) return parsed.data;
+  const inner = (result as { result?: unknown } | null)?.result;
+  if (inner !== undefined && inner !== result) return agentReport(inner);
+  if (typeof result !== "string") return undefined;
+  const m = result.trim().match(/^"?(checkout|needs_user|sold_out|failed)"?\s*[:\-–]?\s*([\s\S]*)$/i);
+  return m ? { status: m[1].toLowerCase() as z.infer<typeof AgentResult>["status"], note: m[2] || undefined } : undefined;
+}
+
+const currentPage = (ctx: Ctx) => ctx.watcher?.contexts().flatMap((c) => c.pages()).at(-1);
 
 async function onCap(ctx: Ctx, run: number) {
   if (run !== ctx.run || ctx.settled) return;
@@ -281,22 +302,20 @@ async function tick(ctx: Ctx) {
   const text = await pageText(page);
   if (ctx.settled) return;
   if (SOLD_OUT_TEXT.test(text)) return void (await soldOut(ctx));
-  advance(ctx, page.url(), text);
+  advance(ctx, page.url());
 }
 
 const pageText = (page: Page) =>
   page.innerText("body", { timeout: 3000 }).then((t) => t.slice(0, PAGE_TEXT_MAX)).catch(() => "");
 
-const STEP_TEXT: Record<"tickets" | "seats" | "checkout", (c: Ctx) => string> = {
+const STEP_TEXT: Record<"seats" | "tickets" | "checkout", (c: Ctx) => string> = {
+  seats: (c) => `Choosing ${c.req.party_size} adjacent ${PREF_SHORT[c.req.seat_pref]}`,
   tickets: (c) => `Selecting ${c.req.party_size} Adult tickets`,
-  seats: (c) => `Choosing ${c.req.party_size} adjacent ${PREF_TEXT[c.req.seat_pref]}`,
   checkout: () => "At checkout, continuing as guest",
 };
 
-function advance(ctx: Ctx, url: string, text: string) {
-  const order = ["checkout", "seats", "tickets"] as const;
-  const hit =
-    order.find((s) => STATE_PATTERNS[s].url.test(url)) ?? order.find((s) => STATE_PATTERNS[s].text.test(text));
+function advance(ctx: Ctx, url: string) {
+  const hit = (["checkout", "tickets", "seats"] as const).find((s) => STATE_PATTERNS[s].test(url));
   if (!hit || PROGRESS.indexOf(hit) <= PROGRESS.indexOf(ctx.progress)) return;
   ctx.progress = hit;
   ctx.job.state = hit;
@@ -328,8 +347,26 @@ async function trip(ctx: Ctx, page: Page, reasons: string[], signIn: boolean) {
     ? "Sign in here, then press Continue."
     : "Your turn: finish payment in the window.";
   pushStep(job, signIn ? "The site asks you to sign in. Agent paused." : "Reached the payment page. Agent paused, your turn.");
-  if (signIn) return;
+  if (!signIn) await extractInto(ctx, page);
+}
 
+/** Agent stopped on the checkout page (e.g. Fandango's guest email step): seats are held, hand over. */
+async function checkoutHandoff(ctx: Ctx, page: Page) {
+  if (!settle(ctx)) return;
+  const { job } = ctx;
+  log(ctx, "checkout handoff (no guard): agent stopped on the checkout page");
+  ctx.progress = "checkout";
+  job.state = "handoff";
+  job.interactive = true;
+  job.guard_tripped = false;
+  job.message = "Seats held. Your turn: enter your email and pay in the window.";
+  pushStep(job, "Seats held. Your turn: enter your email and pay in the window.");
+  await extractInto(ctx, page);
+}
+
+/** One read of the checkout page text → seats, subtotal, hold timer on the job. Failure is non-fatal. */
+async function extractInto(ctx: Ctx, page: Page) {
+  const { job } = ctx;
   try {
     const info = await extractCheckout(await pageText(page));
     if (!info) return;
