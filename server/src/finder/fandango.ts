@@ -195,7 +195,11 @@ async function readTicketLinks(page: Page, date: string, title?: string): Promis
     const nameLink = theaterEl?.querySelector(".shared-theater-header__name-link")
       ?? [...(theaterEl?.querySelectorAll('a[href*="theater-page"]') ?? [])]
         .find((l) => !/upcoming|details|see |directions|more/i.test(l.textContent ?? ""));
-    const movieTitle = a.closest(".shared-movie-showtimes")?.querySelector('a[href*="movie-overview"]')?.textContent?.trim();
+    // The block's first movie-overview link is the poster (no text); the title link has the name.
+    const movieBlock = a.closest(".shared-movie-showtimes");
+    const movieTitle = (movieBlock?.querySelector(".shared-movie-showtimes__movie-title-link")
+      ?? [...(movieBlock?.querySelectorAll('a[href*="movie-overview"]') ?? [])].find((l) => (l.textContent ?? "").trim()))
+      ?.textContent?.trim();
     const group = a.closest(".shared-showtimes__amenity-group");
     // A group's h4 ("Premium Format", "Standard") appears only on the first group of its kind.
     let heading = group?.querySelector("h4")?.textContent?.trim();
