@@ -19,8 +19,9 @@ type Found = { matched_title: string; showtimes: Showtime[]; note?: string };
 const cache = new Map<string, { at: number; found: Found }>();
 
 // Tracing is lane D's; use it only if server/src/trace exists.
-type WithSpan = <T>(name: string, attrs: Record<string, unknown>, fn: () => Promise<T>) => Promise<T>;
-let withSpan: WithSpan = (_name, _attrs, fn) => fn();
+type SpanHandle = { set: (attrs: Record<string, unknown>) => void };
+type WithSpan = <T>(name: string, attrs: Record<string, unknown>, fn: (span: SpanHandle) => Promise<T>) => Promise<T>;
+let withSpan: WithSpan = (_name, _attrs, fn) => fn({ set: () => {} });
 const tracePath = resolve(here, "../trace/index.ts");
 if (existsSync(tracePath)) {
   try {
@@ -45,7 +46,7 @@ export async function runSearch(req: SearchRequest, job: SearchJob): Promise<voi
     return;
   }
 
-  await withSpan("finder.fandango", { kind: "finder", source: SOURCE, movie: req.movie, zip: req.zip, "openinference.span.kind": "AGENT" }, async () => {
+  await withSpan("finder.fandango", { kind: "finder", source: SOURCE, movie: req.movie, zip: req.zip, "openinference.span.kind": "AGENT" }, async (span) => {
     let sessionId: string | undefined;
     let timer: NodeJS.Timeout | undefined;
     const log = (m: string) => console.log(`[finder ${job.search_id}] ${m}`);
@@ -93,6 +94,12 @@ export async function runSearch(req: SearchRequest, job: SearchJob): Promise<voi
       job.state = "failed";
       job.message = `Search failed: ${msg.slice(0, 160)}`;
     } finally {
+      span.set({
+        outcome: job.state !== "failed" ? "ok" : src.state === "blocked" ? "blocked" : "error",
+        showtimes_count: job.showtimes.length,
+        matched_title: job.matched_title,
+        date: req.date,
+      });
       clearTimeout(timer);
       if (sessionId) await Sessions.deleteSession({ path: { session_id: sessionId } } as never).catch(() => {});
     }

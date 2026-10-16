@@ -9,6 +9,7 @@ import { z } from "zod";
 import type { BookingJob, BookingRequest, BookingState, Showtime } from "../../../shared/types.js";
 import { env } from "../env.js";
 import { pushStep } from "../jobs.js";
+import { withSpan } from "../trace/index.js";
 import { checkGuard, type Page } from "./guard.js";
 
 // ---- config -------------------------------------------------------------------------------------
@@ -149,7 +150,25 @@ const clock = (iso: string) => {
 
 // ---- public API ---------------------------------------------------------------------------------
 
+/** Traced entry point: one AGENT span per booking, outcome = the state the booking settled in. */
 export async function runBooking(req: BookingRequest, showtime: Showtime, job: BookingJob): Promise<void> {
+  const attrs = {
+    kind: "booker", chain: showtime.chain, theater: showtime.theater_name, movie: showtime.movie_title,
+    showtime_start: showtime.start, party_size: req.party_size, seat_pref: req.seat_pref,
+  };
+  await withSpan("booker.fandango", attrs, async (span) => {
+    try {
+      await runBookingUntraced(req, showtime, job);
+    } finally {
+      span.set({
+        outcome: job.state, guard_tripped: !!job.guard_tripped, steps: job.steps.length,
+        seats_count: job.seats?.length ?? 0, interactive: job.interactive,
+      });
+    }
+  });
+}
+
+async function runBookingUntraced(req: BookingRequest, showtime: Showtime, job: BookingJob): Promise<void> {
   const ctx: Ctx = {
     job, req, showtime, watching: false, run: 0, settled: false, wake: () => {}, progress: "opening",
     loggedIframes: new Set(),

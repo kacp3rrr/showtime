@@ -3,6 +3,7 @@
 import { runSearch } from "../server/src/finder/index.ts";
 import { createSearchJob } from "../server/src/jobs.ts";
 import { env } from "../server/src/env.ts";
+import { flushTracing, tracingEnabled } from "../server/src/trace/index.ts";
 
 const [movie, zip = "10018", dateArg, party = "2"] = process.argv.slice(2);
 if (!movie) {
@@ -27,4 +28,8 @@ clearInterval(tick);
 
 console.log(`\n=== SearchJob after ${((Date.now() - t0) / 1000).toFixed(1)}s ===`);
 console.log(JSON.stringify(job, null, 2));
+if (tracingEnabled) {
+  const r = await flushTracing();
+  console.log(r ? `[trace] span export: ${r.ok ? "OK" : `FAILED (HTTP ${r.status ?? "?"}) ${r.error ?? ""}`}` : "[trace] nothing exported");
+}
 process.exit(job.state === "failed" ? 1 : 0);
