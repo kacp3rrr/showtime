@@ -18,6 +18,7 @@ export type Env = {
   BOOK_CHAIN: string;
   SEARCH_SOURCES: string[];
   ELEVENLABS_API_KEY: string;
+  FINDER_AGENT: boolean;
 };
 
 // Needed for real (non-mock) runs. Arize and ElevenLabs are optional: tracing no-ops without them.
@@ -54,6 +55,7 @@ function load(): Env {
       .map((s) => s.trim().toLowerCase())
       .filter(Boolean),
     ELEVENLABS_API_KEY: str("ELEVENLABS_API_KEY"),
+    FINDER_AGENT: str("FINDER_AGENT", "0") === "1",
   };
 }
 
