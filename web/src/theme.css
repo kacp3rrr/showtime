@@ -66,17 +66,44 @@ button, input, select { font: inherit; color: inherit; }
 ::-webkit-scrollbar-thumb { background: #3a3a3e; border-radius: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 
-/* ---------- App shell / header ---------- */
-.app { min-height: 100vh; display: flex; flex-direction: column; }
-.app__header { display: flex; align-items: baseline; gap: 16px; padding: 18px 32px; border-bottom: 1px solid var(--st-border); }
-.app__header h1 {
-  font-size: 30px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; cursor: pointer;
-  color: var(--st-red);
-  text-shadow: 0 0 6px var(--st-red-glow), 0 0 18px var(--st-red-glow);
-}
-.app__crumb { color: var(--st-text-muted); font-size: 15px; letter-spacing: .04em; }
-main { flex: 1; padding: 24px 32px; }
+/* ---------- App shell: top bar + two panels, sized to the viewport (no page scroll) ---------- */
+/* Flex column (not grid rows): the error banner is optional, and the layout must still take the rest. */
+.app { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .loading { color: var(--st-text-muted); }
+
+.topbar {
+  display: flex; align-items: center; gap: 24px; padding: 14px 24px 18px;
+  border-bottom: 1px solid var(--st-border); background: rgba(10, 10, 11, .85);
+}
+.logo { flex: none; display: grid; place-items: center; width: 56px; height: 56px; padding: 0; border: 0; background: none; cursor: pointer; color: var(--st-red); }
+.logo__icon { width: 52px; height: 52px; filter: drop-shadow(0 0 6px var(--st-red-glow)) drop-shadow(0 0 14px var(--st-red-glow)); }
+
+.topbar, .banner--error { flex: none; }
+.layout {
+  flex: 1; min-height: 0;
+  display: grid; grid-template-columns: minmax(0, 1fr) 400px; grid-template-rows: minmax(0, 1fr); gap: 20px;
+  padding: 16px 24px 20px;
+}
+.panel { min-height: 0; min-width: 0; }
+.panel--left { overflow-y: auto; padding-right: 4px; }
+.panel--live { display: flex; flex-direction: column; overflow: hidden; }
+.panel--live .live { flex: 1; min-height: 0; }
+.panel--right { display: flex; flex-direction: column; }
+.panel__nav { margin-bottom: 10px; }
+.link {
+  background: none; border: 0; padding: 4px 0; cursor: pointer;
+  color: var(--st-text-muted); font-size: 16px; font-weight: 600;
+}
+.link:hover { color: var(--st-text); }
+
+/* Empty states: left placeholder, right idle card. */
+.placeholder, .idle-card {
+  display: grid; place-items: center; text-align: center; padding: 24px;
+  border-radius: var(--st-radius-lg); color: var(--st-text-dim); font-size: 22px; font-weight: 600;
+}
+.placeholder { height: 100%; min-height: 240px; border: 2px dashed var(--st-surface-3); background: rgba(21, 21, 22, .5); }
+.idle-card { flex: 1; background: var(--st-surface); border: 1px solid var(--st-border); box-shadow: var(--st-shadow-card); color: var(--st-text-muted); font-size: 20px; }
 
 /* ---------- Buttons ---------- */
 .btn {
@@ -104,7 +131,7 @@ main { flex: 1; padding: 24px 32px; }
 }
 .banner p { margin: 0; flex-basis: 100%; }
 .banner a { color: var(--st-gold); font-weight: 600; }
-.banner--error { margin: 16px 32px 0; border-color: var(--st-red-border); background: rgba(224, 20, 30, .08); }
+.banner--error { margin: 12px 24px 0; border-color: var(--st-red-border); background: rgba(224, 20, 30, .08); }
 .banner--go {
   background: linear-gradient(135deg, var(--st-red), var(--st-red-dark)); border-color: var(--st-red);
   color: var(--st-text); font-weight: 700; font-size: 20px; box-shadow: var(--st-shadow-glow);
@@ -116,27 +143,61 @@ main { flex: 1; padding: 24px 32px; }
 .banner--bad { border-color: var(--st-red-border); }
 @keyframes st-pulse { 50% { box-shadow: 0 0 26px var(--st-red-glow); } }
 
-/* ---------- Search ---------- */
-.search-form { max-width: 920px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+/* ---------- Search bar (top) ---------- */
+.search-bar { flex: 1; display: flex; align-items: center; justify-content: center; gap: 14px; min-width: 0; }
+/* Outlined fields with the label sitting on the border, as in the mockup. */
+.tfield { position: relative; display: flex; flex-direction: column; }
+.tfield > span {
+  position: absolute; top: -9px; left: 12px; padding: 0 5px; z-index: 1;
+  background: var(--st-bg); color: var(--st-text-muted); font-size: 12px; letter-spacing: .03em; line-height: 1.4;
+}
+.tfield input {
+  height: 50px; padding: 0 14px; font-size: 18px; width: 100%;
+  background: var(--st-inset); border: 1px solid var(--st-red-border); border-radius: var(--st-radius-md);
+  transition: box-shadow var(--st-ease), border-color var(--st-ease);
+}
+.tfield input::placeholder { color: var(--st-text-dim); }
+.tfield input:focus { outline: none; border-color: var(--st-red); box-shadow: 0 0 0 2px var(--st-red-glow); }
+.tfield input::-webkit-calendar-picker-indicator { filter: invert(1) sepia(1) saturate(6) hue-rotate(-50deg); cursor: pointer; }
+.tfield--movie { flex: 1 1 260px; max-width: 340px; }
+.tfield--zip { flex: 0 0 130px; }
+.tfield--date { flex: 0 0 200px; }
+.tfield__error { position: absolute; top: 100%; left: 4px; margin-top: 2px; color: #ff6b70; font-size: 12px; font-style: normal; white-space: nowrap; }
+
+.search-bar__go { position: relative; flex: none; }
+/* The only purple element in the UI. */
+.search-bar__submit {
+  height: 50px; padding: 0 22px; font-size: 18px; color: var(--st-text);
+  background: var(--st-purple); border-color: var(--st-purple); box-shadow: 0 8px 24px rgba(111, 63, 212, .35);
+}
+.search-bar__submit:hover:not(:disabled) { background: var(--st-purple-hover); border-color: var(--st-purple-hover); }
+.search-bar__note { position: absolute; top: 100%; right: 0; margin-top: 2px; color: var(--st-gold); font-size: 12px; font-style: normal; white-space: nowrap; }
+
+.options { position: relative; flex: 0 1 auto; min-width: 0; }
+.options__toggle {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0; height: 50px; padding: 4px 14px; max-width: 220px;
+  background: var(--st-surface-2); border: 1px solid var(--st-border); border-radius: var(--st-radius-md); cursor: pointer; text-align: left;
+}
+.options__toggle:hover { border-color: var(--st-red-border); }
+.options__toggle--error { border-color: var(--st-red); }
+.options__label { font-size: 12px; color: var(--st-text-muted); letter-spacing: .03em; }
+.options__summary { font-size: 15px; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.options__toggle--error .options__summary { color: #ff6b70; }
+.options__pop {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 10; width: 360px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 16px;
+  background: var(--st-surface); border: 1px solid var(--st-red-border); border-radius: var(--st-radius-lg); box-shadow: var(--st-shadow-card);
+}
+.options__error { grid-column: 1 / -1; }
 .field { display: flex; flex-direction: column; gap: 6px; }
-.field--wide { grid-column: 1 / -1; }
 .field span { color: var(--st-text-muted); font-size: 13px; letter-spacing: .03em; }
 .field input, .field select {
   background: var(--st-surface-2); border: 1px solid var(--st-red-border); border-radius: var(--st-radius-md);
-  padding: 11px 13px; transition: box-shadow var(--st-ease), border-color var(--st-ease);
+  padding: 9px 11px; transition: box-shadow var(--st-ease), border-color var(--st-ease);
 }
-.field input::placeholder { color: var(--st-text-dim); }
 .field input:focus, .field select:focus { outline: none; border-color: var(--st-red); box-shadow: 0 0 0 2px var(--st-red-glow); }
-.field input[type="date"] { border-width: 2px; border-color: var(--st-red); padding: 10px 12px; }
 .field input::-webkit-calendar-picker-indicator { filter: invert(1) sepia(1) saturate(6) hue-rotate(-50deg); cursor: pointer; }
-.field--wide input { font-size: 24px; }
 .field__error { color: #ff6b70; font-size: 13px; font-style: normal; }
-/* The only purple element in the UI. */
-.search-form__submit {
-  grid-column: 1 / -1; padding: 15px; font-size: 20px;
-  background: var(--st-purple); border-color: var(--st-purple); box-shadow: 0 8px 24px rgba(111, 63, 212, .35);
-}
-.search-form__submit:hover:not(:disabled) { background: var(--st-purple-hover); border-color: var(--st-purple-hover); }
 
 /* ---------- Results ---------- */
 .results__header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 14px; }
@@ -158,40 +219,62 @@ main { flex: 1; padding: 24px 32px; }
 .spinner { width: 10px; height: 10px; border: 2px solid var(--st-text-muted); border-top-color: transparent; border-radius: 50%; animation: st-spin 1s linear infinite; }
 @keyframes st-spin { to { transform: rotate(360deg); } }
 
-/* Theater rows as dark cards. */
-.grid { display: flex; flex-direction: column; gap: 12px; }
-.grid__row {
-  display: grid; grid-template-columns: 260px 1fr; gap: 18px; padding: 16px 18px;
+/* Search progress (replaces the placeholder while running). */
+.search-progress { margin: 4px 0 14px; }
+.search-progress__track { height: 8px; border-radius: 999px; background: var(--st-surface-3); overflow: hidden; }
+.search-progress__bar { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--st-red), var(--st-gold)); transition: width 1s linear; }
+.search-progress__text { margin: 10px 0 0; font-size: 20px; font-weight: 600; }
+.search-progress__text span { color: var(--st-text-muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+
+/* Listing: "Movie Theater Spot" | "Showtimes", one dark card per theater. */
+.listing { display: flex; flex-direction: column; gap: 10px; }
+.listing__head {
+  display: grid; grid-template-columns: 300px 1fr; gap: 18px; padding: 0 16px;
+  font-size: 18px; font-weight: 700; color: var(--st-text);
+}
+.theater {
+  display: grid; grid-template-columns: 64px 218px minmax(0, 1fr); gap: 0 18px; align-items: center;
+  padding: 12px 16px; min-height: 92px;
   background: var(--st-surface); border: 1px solid var(--st-border); border-radius: var(--st-radius-lg);
   box-shadow: var(--st-shadow-card); transition: border-color var(--st-ease);
 }
-.grid__row:hover { border-color: var(--st-red-soft); }
-.grid__theater h3 { font-size: 18px; font-weight: 700; }
-.grid__theater p { margin: 4px 0 0; color: var(--st-text-muted); font-size: 13px; }
-.grid__times { display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start; }
+.theater:hover { border-color: var(--st-red-soft); }
+.theater__badge {
+  width: 64px; height: 76px; display: grid; place-items: center; padding: 4px; text-align: center;
+  background: var(--st-inset); border: 1px solid var(--st-border); border-radius: var(--st-radius-sm);
+  color: var(--st-red); font-weight: 800; letter-spacing: .04em; line-height: 1.05; overflow-wrap: anywhere;
+}
+.theater__badge--lg { font-size: 20px; }
+.theater__badge--md { font-size: 14px; }
+.theater__badge--sm { font-size: 10px; letter-spacing: 0; overflow-wrap: normal; }
+.theater__info { min-width: 0; }
+.theater__info h3 { font-size: 20px; font-weight: 700; }
+.theater__info p { margin: 4px 0 0; color: var(--st-text-muted); font-size: 15px; }
+/* One row of chips; it scrolls sideways inside the card, never the page. */
+.theater__times { display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 6px; }
 
-/* Showtime buttons: time on top, format + action below. Three states map to real ones:
-   bookable (agent books) = solid red · external link = red outline · sold out = flat grey. */
+/* Showtime chips: time on top, format under it. Three states map to real ones:
+   bookable (agent books) = solid red, external link = red outline + arrow, sold out = flat grey. */
 .time-chip {
+  position: relative; flex: none;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  min-width: 92px; min-height: 52px; padding: 6px 12px;
+  min-width: 104px; min-height: 58px; padding: 6px 12px;
   background: var(--st-surface-2); border: 1px solid var(--st-red-border); border-radius: var(--st-radius-md);
   cursor: pointer; transition: background var(--st-ease), border-color var(--st-ease), box-shadow var(--st-ease);
 }
 .time-chip:hover:not(:disabled) { border-color: var(--st-red); background: #242427; }
+.time-chip:disabled { cursor: not-allowed; }
 .time-chip--bookable { background: var(--st-red); border-color: var(--st-red); box-shadow: var(--st-shadow-glow); }
 .time-chip--bookable:hover:not(:disabled) { background: #f0202a; border-color: #f0202a; }
-.time-chip--sold { background: var(--st-surface-3); border-color: transparent; box-shadow: none; color: var(--st-text-dim); cursor: not-allowed; }
-.time-chip__time { font-weight: 700; font-size: 16px; line-height: 1.15; }
-.time-chip__action { font-size: 11px; color: var(--st-text-muted); letter-spacing: .04em; text-transform: uppercase; }
-.time-chip--bookable .time-chip__action { color: var(--st-text); font-weight: 700; }
+.time-chip--bookable:disabled:not(.time-chip--sold) { opacity: .5; box-shadow: none; }
+.time-chip--sold { background: var(--st-surface-3); border-color: transparent; box-shadow: none; color: var(--st-text-dim); }
+.time-chip__time { font-weight: 700; font-size: 18px; line-height: 1.15; }
+.time-chip__format { font-size: 13px; color: var(--st-text-muted); }
+.time-chip--bookable .time-chip__format { color: rgba(255, 255, 255, .9); }
 .time-chip--sold .time-chip__time { text-decoration: line-through; }
-.badge { font-size: 11px; letter-spacing: .03em; color: var(--st-text-muted); }
-.time-chip--bookable .badge { color: rgba(255, 255, 255, .85); }
+.time-chip__ext { position: absolute; top: 3px; right: 6px; font-size: 12px; color: var(--st-red); }
 
 /* ---------- Booking (the "Booking Agent Status" panel) ---------- */
-.booking { display: grid; grid-template-columns: 65fr 35fr; gap: 20px; height: calc(100vh - 140px); }
-.booking__live { min-height: 0; }
 .live {
   position: relative; height: 100%; border-radius: var(--st-radius-lg); overflow: hidden;
   border: 1px solid var(--st-border); background: var(--st-inset); box-shadow: var(--st-shadow-card);
@@ -207,16 +290,16 @@ main { flex: 1; padding: 24px 32px; }
   padding: 6px 16px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap;
 }
 .booking__panel {
-  display: flex; flex-direction: column; gap: 14px; overflow-y: auto; padding: 18px;
+  flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; padding: 20px;
   background: var(--st-surface); border: 1px solid var(--st-border); border-radius: var(--st-radius-lg); box-shadow: var(--st-shadow-card);
 }
-.booking__panel h2 { font-size: 20px; font-weight: 700; }
-.booking__showtime { margin: 0; color: var(--st-text-muted); font-size: 15px; }
+.booking__panel h2 { font-size: 24px; font-weight: 700; }
+.booking__showtime { margin: 0; color: var(--st-text-muted); font-size: 17px; }
 
 /* Stepper as a thin rounded progress track: done = red, current = gold, rest = grey. */
 .stepper { display: flex; list-style: none; padding: 0; margin: 0; gap: 4px; }
 .stepper li {
-  flex: 1; text-align: center; font-size: 12px; padding: 0 2px 8px; color: var(--st-text-dim);
+  flex: 1; text-align: center; font-size: 14px; padding: 0 2px 8px; color: var(--st-text-dim);
   background: linear-gradient(var(--st-surface-3), var(--st-surface-3)) bottom / 100% 4px no-repeat;
 }
 .stepper li:first-child { border-radius: 4px 0 0 4px; }
@@ -227,12 +310,24 @@ main { flex: 1; padding: 24px 32px; }
 .booking__facts dt { color: var(--st-text-muted); }
 .booking__facts dd { margin: 0; font-weight: 700; }
 .booking__facts dd:first-of-type { color: var(--st-gold); }
-.steps-log { list-style: none; padding: 0; margin: 0; font-size: 13px; display: flex; flex-direction: column; gap: 5px; color: #d6d6da; }
+.steps-log { list-style: none; padding: 0; margin: 0; font-size: 15px; display: flex; flex-direction: column; gap: 5px; color: #d6d6da; }
 .steps-log time { color: var(--st-text-dim); margin-right: 6px; font-variant-numeric: tabular-nums; }
 .booking__actions { margin-top: auto; }
 .app__trace { margin-left: auto; align-self: center; }
 .booking__trace { margin: 0; font-size: 12px; color: var(--st-text-dim); font-variant-numeric: tabular-nums; }
 .booking__actions .btn { width: 100%; min-height: 44px; }
+
+@media (max-width: 1100px) {
+  .app { height: auto; min-height: 100vh; overflow: visible; }
+  .topbar { flex-wrap: wrap; }
+  .search-bar { flex-wrap: wrap; justify-content: flex-start; row-gap: 22px; }
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .panel--left, .panel--live { overflow: visible; }
+  .panel--live .live { height: 70vh; }
+  .theater { grid-template-columns: 64px minmax(0, 1fr); }
+  .theater__times { grid-column: 1 / -1; margin-top: 10px; }
+  .listing__head { display: none; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
