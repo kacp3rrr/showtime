@@ -34,12 +34,24 @@ const MAX_STEPS = 40;
 const PAGE_TEXT_MAX = 30_000; // checkout pages are far smaller; this only bounds pathological pages
 const PROGRESS: BookingState[] = ["opening", "seats", "tickets", "checkout"];
 
-const PREF_TEXT: Record<BookingRequest["seat_pref"], string> = {
-  center: "seats in the middle rows near the center of the theater, not the first 3 rows",
-  aisle: "aisle seats in the middle rows",
-  any: "the best available seats",
-  pick: "the seats the person already selected (keep them exactly; never change or add seats)",
-};
+/**
+ * Seat preference as a ranked fallback, never a blocker: a nearly sold-out show may only have front
+ * rows left, and a strict "not the front rows" made the agent stop with nothing selected.
+ * Pick mode: the person chose the seats; the agent must keep them exactly.
+ */
+function prefText(pref: BookingRequest["seat_pref"], n: number): string {
+  if (pref === "pick") return "Keep the seats the person already selected exactly; never change, remove or add seats.";
+  if (n === 1) {
+    return pref === "any" ? "Take the best available seat."
+      : `Prefer ${pref === "center" ? "a seat in the middle rows near the center" : "an aisle seat in the middle rows"}. ` +
+        "If none is free, take the best available seat anywhere, front rows included.";
+  }
+  const group = n === 2 ? "adjacent pair" : `group of ${n} adjacent seats`;
+  if (pref === "any") return `Take the best available ${group}.`;
+  const want = pref === "center" ? "seats in the middle rows near the center" : "aisle seats in the middle rows";
+  return `Prefer ${want}. If none are free, take the best available ${group} anywhere, front rows included. ` +
+    `Only if no ${n} adjacent seats exist at all, take the ${n} closest available seats.`;
+}
 const PREF_SHORT: Record<BookingRequest["seat_pref"], string> = {
   center: "center seats", aisle: "aisle seats", any: "seats", pick: "seats",
 };
@@ -48,10 +60,13 @@ const PICK_WAIT_MS = 60_000;
 /** Agent note meaning a real account wall, which stays needs_user even on the checkout page. */
 const SIGN_IN_NOTE = /sign.?in|log.?in|password|account/i;
 
-// CLAUDE.md "Booker stop rules", verbatim with {N}/{PREF} filled.
-const stopRules = (n: number, pref: string) => `You are booking movie tickets for a human who will pay themselves.
+// CLAUDE.md "Booker stop rules" with {N} filled; the seat line carries the full ranked preference
+// (in pick mode the seats are already chosen, so it only says to keep them).
+const seatRule = (pref: BookingRequest["seat_pref"], n: number) =>
+  pref === "pick" ? prefText(pref, n) : `Choose ${n} seats. ${prefText(pref, n)}`;
+const stopRules = (n: number, pref: BookingRequest["seat_pref"]) => `You are booking movie tickets for a human who will pay themselves.
 Select exactly ${n} "Adult" tickets. Never select child, senior, member or discount types.
-Choose ${n} adjacent seats; prefer ${pref}. If none adjacent, choose the closest available.
+${seatRule(pref, n)}
 Skip food, upgrades, memberships, newsletters and add-ons. Dismiss cookie banners and popups.
 Continue to checkout as a guest when asked.
 STOP IMMEDIATELY and report done when any page asks for payment, card number, billing
@@ -166,8 +181,8 @@ export async function runBooking(req: BookingRequest, showtime: Showtime, job: B
     ctx.watcher = await connectBrowser(sessionId);
     if (req.seat_pref === "pick") return await openForPicking(ctx, showtime.booking_url);
     const prompt =
-      `Book ${req.party_size} Adult tickets with ${req.party_size} adjacent seats, preferring ` +
-      `${PREF_TEXT[req.seat_pref]}. Continue as guest until the payment step, then stop. ${REPORT}`;
+      `Book ${req.party_size} Adult tickets. ${prefText(req.seat_pref, req.party_size)} ` +
+      `Continue as guest until the payment step, then stop. ${REPORT}`;
     await drive(ctx, prompt, showtime.booking_url);
   } catch (e) {
     await fail(ctx, e);
@@ -201,8 +216,8 @@ export async function continueBooking(job: BookingJob): Promise<void> {
       ? `The person has already selected their seats on this page. Do not change, remove or add seats. ` +
         `Continue booking from the current page: ${ctx.req.party_size} Adult tickets. ` +
         `Continue as guest until the payment step, then stop. ${REPORT}`
-      : `Continue booking from the current page: ${ctx.req.party_size} Adult tickets with ` +
-        `${ctx.req.party_size} adjacent seats, preferring ${PREF_TEXT[ctx.req.seat_pref]}. ` +
+      : `Continue booking from the current page: ${ctx.req.party_size} Adult tickets. ` +
+        `${prefText(ctx.req.seat_pref, ctx.req.party_size)} ` +
         `Continue as guest until the payment step, then stop. ${REPORT}`;
     await drive(ctx, prompt);
   } catch (e) {
@@ -244,7 +259,7 @@ async function drive(ctx: Ctx, prompt: string, url?: string) {
     taskOptions: {
       ...(url ? { url } : {}),
       outputSchema: agentOutputSchema,
-      extendedSystemMessage: stopRules(ctx.req.party_size, PREF_TEXT[ctx.req.seat_pref]),
+      extendedSystemMessage: stopRules(ctx.req.party_size, ctx.req.seat_pref),
       maxSteps: MAX_STEPS,
     },
   }).then(
