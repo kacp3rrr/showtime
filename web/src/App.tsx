@@ -20,7 +20,7 @@ const searchDone = (j: SearchJob) => j.state !== "running";
 const bookingDone = (j: BookingJob) => j.state === "sold_out" || j.state === "failed" || j.state === "cancelled";
 
 const DEMO = new URLSearchParams(window.location.search).get("demo") === "1"
-  ? { movie: "Street Fighter", zip: "10018" } : undefined;
+  ? { movie: "Street Fighter", zip: "10018", seat_pref: "pick" as const } : undefined;
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>({ name: "search" });
